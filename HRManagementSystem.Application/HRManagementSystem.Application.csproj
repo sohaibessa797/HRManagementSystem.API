@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Dtos\CompleteEmployeeProfileDto\**" />
+    <Compile Remove="Dtos\HR\**" />
+    <EmbeddedResource Remove="Dtos\CompleteEmployeeProfileDto\**" />
+    <EmbeddedResource Remove="Dtos\HR\**" />
+    <None Remove="Dtos\CompleteEmployeeProfileDto\**" />
+    <None Remove="Dtos\HR\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HRManagementSystem.Domain\HRManagementSystem.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
