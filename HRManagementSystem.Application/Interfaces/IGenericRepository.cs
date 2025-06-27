@@ -12,6 +12,9 @@ namespace HRManagementSystem.Application.Interfaces
         IEnumerable<T> GetAll(Expression<Func<T, bool>>? predicate = null, params Expression<Func<T, object>>[]? includes);
         T FirstOrDefault(Expression<Func<T, bool>>? predicate = null, params Expression<Func<T, object>>[]? includes);
 
+        bool Any(Expression<Func<T, bool>> predicate);
+
+
         void Add(T entity);
 
         void Remove(T entity);

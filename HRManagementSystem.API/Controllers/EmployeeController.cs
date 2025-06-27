@@ -4,6 +4,7 @@ using HRManagementSystem.Application.Interfaces;
 using HRManagementSystem.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -16,16 +17,19 @@ namespace HRManagementSystem.API.Controllers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUserService _userService;
 
 
-        public EmployeeController(IUnitOfWork unitOfWork, IMapper mapper, UserManager<ApplicationUser> userManager)
+        public EmployeeController(IUnitOfWork unitOfWork, IMapper mapper, IUserService userService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _userManager = userManager;
+            _userService = userService;
         }
+        // ===================== GET METHODS =====================
 
+        // GET: api/Employee/all
+        // [GET] Get all employees except the current authenticated user (only HR/Admin)
         [HttpGet("all")]
         [Authorize(Roles = "HR,Admin")]
         public async Task<IActionResult> All()
@@ -36,49 +40,49 @@ namespace HRManagementSystem.API.Controllers
                 e => e.ApplicationUserId.ToString() != currentUserId,
                 d => d.Department);
 
-            if (employees == null || !employees.Any())
-            {
-                return NotFound("No employees found.");
-            }
+            if (!employees.Any())
+                return NotFound(new { success = false, message = "No employees found." });            
 
-            var employeeDtos = _mapper.Map<List<EmployeeResponse>>(employees);
+            var employeeResponses = _mapper.Map<List<EmployeeResponse>>(employees);
 
+            // Fetch and assign roles to each employee
             foreach (var employee in employees)
             {
-                var user = await _userManager.FindByIdAsync(employee.ApplicationUserId.ToString());
-                if (user != null)
-                {
-                    var roles = await _userManager.GetRolesAsync(user);
-                    var dto = employeeDtos.FirstOrDefault(x => x.Id == employee.Id);
-                    if (dto != null)
-                        dto.Roles = roles.ToList();
-                }
+                var response = employeeResponses.FirstOrDefault(x => x.Id == employee.Id);
+                if (response != null)
+                    response.Roles = await _userService.GetUserRolesAsync(employee.ApplicationUserId);
             }
 
-            return Ok(employeeDtos);
+            return Ok(new
+            {
+                success = true,
+                message = "All Employees requests retrieved successfully.",
+                data = employeeResponses
+            });
         }
+
+        // GET: api/Employee/{id}
+        // Get employee by ID
         [HttpGet("{id}")]
         [Authorize(Roles = "HR,Admin")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var employee = _unitOfWork.Employees.FirstOrDefault(d => d.Id == id,d=>d.Department);
             if (employee == null)
-            {
-                return NotFound($"Employee with ID {id} not found.");
-            }
+                return NotFound(new { success = false, message = $"Employee with ID {id} not found." });
 
-            var employeeDto = _mapper.Map<EmployeeResponse>(employee);
-            var user = await _userManager.FindByIdAsync(employee.ApplicationUserId.ToString());
-            if (user != null)
-            {
-                var roles = await _userManager.GetRolesAsync(user);
-                employeeDto.Roles = roles.ToList(); 
-            }
+            var response = _mapper.Map<EmployeeResponse>(employee);
+            response.Roles = await _userService.GetUserRolesAsync(employee.ApplicationUserId);
 
-            return Ok(employeeDto);
+            return Ok(new
+            {
+                success = true,
+                data = response
+            });
         }
 
-
+        // GET: api/Employee/profile
+        // Get the current authenticated employee's profile
         [HttpGet("profile")]
         [Authorize(Roles = "HR,Admin,Employee")]
         public async Task<IActionResult> GetProfile()
@@ -88,29 +92,35 @@ namespace HRManagementSystem.API.Controllers
             {
                 return Unauthorized("User not authenticated.");
             }
-            var employee = _unitOfWork.Employees.FirstOrDefault(e => e.ApplicationUserId == Guid.Parse(userId), e => e.Department);
+
+            var employee = _unitOfWork.Employees
+                .FirstOrDefault(e => e.ApplicationUserId == Guid.Parse(userId),
+                                e => e.Department,
+                                e => e.PerformanceReviews); 
+
             if (employee == null)
             {
                 return NotFound("Employee profile not found.");
             }
-            var employeeDto = _mapper.Map<EmployeeResponse>(employee);
-            var user = await _userManager.FindByIdAsync(employee.ApplicationUserId.ToString());
-            if (user != null)
-            {
-                var roles = await _userManager.GetRolesAsync(user);
-                employeeDto.Roles = roles.ToList();
-            }
 
-            return Ok(employeeDto);
+            var response = _mapper.Map<EmployeeResponse>(employee);
+            response.Roles = await _userService.GetUserRolesAsync(employee.ApplicationUserId);
+
+            return Ok(response);
         }
+
+        // ===================== UPDATE METHODS =====================
+
+
+        // PUT: api/Employee/update
+        // Update the current authenticated employee's profile
         [HttpPut("update")]
         [Authorize(Roles = "Employee")]
-        public async Task<IActionResult> UpdateProfile([FromBody] EmployeeRequest dto)
+        public async Task<IActionResult> UpdateProfile([FromBody] EmployeeRequest request)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
             {
@@ -121,23 +131,21 @@ namespace HRManagementSystem.API.Controllers
             {
                 return NotFound("Employee profile not found.");
             }
-            _mapper.Map(dto, employee);
+            _mapper.Map(request, employee);
             _unitOfWork.Employees.Update(employee);
             _unitOfWork.Complete();
             var response = _mapper.Map<EmployeeResponse>(employee);
-            
-            var user = await _userManager.FindByIdAsync(employee.ApplicationUserId.ToString());
-            if (user != null)
-            {
-                var roles = await _userManager.GetRolesAsync(user);
-                response.Roles = roles.ToList();
-            }
+
+            response.Roles = await _userService.GetUserRolesAsync(employee.ApplicationUserId);
+
             return Ok(response);
         }
 
+        // PUT: api/Employee/update/HR/{id}
+        // HR or Admin can update an employee profile
         [HttpPut("update/HR/{id}")]
         [Authorize(Roles = "HR,Admin")]
-        public async Task<IActionResult> EditEmployee(Guid id, [FromBody] UpdateEmployeeByHRRequest dto)
+        public async Task<IActionResult> EditEmployee(Guid id, [FromBody] UpdateEmployeeByHRRequest request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -146,25 +154,30 @@ namespace HRManagementSystem.API.Controllers
             if (employee == null)
                 return NotFound("Employee not found.");
 
-            _mapper.Map(dto, employee);
+            _mapper.Map(request, employee);
 
             _unitOfWork.Employees.Update(employee);
             _unitOfWork.Complete();
             var response = _mapper.Map<EmployeeResponse>(employee);
-            var user = await _userManager.FindByIdAsync(employee.ApplicationUserId.ToString());
-            if (user != null)
+            response.Roles = await _userService.GetUserRolesAsync(employee.ApplicationUserId);
+
+
+            return Ok(new
             {
-                var roles = await _userManager.GetRolesAsync(user);
-                response.Roles = roles.ToList();
-            }
-            return Ok(new { message = "Employee updated successfully", 
+                message = "Employee updated successfully",
                 employee = response
             });
+
         }
 
+        // ===================== DELETE METHODS =====================
+
+
+        // PATCH: api/Employee/Soft-Delete/{id}
+        // Soft delete an employee (Admin only)
         [HttpPatch("Soft-Delete/{id}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult SoftDeleteEmployee(Guid id)
+        public IActionResult SoftDelete(Guid id)
         {
             var employee = _unitOfWork.Employees.FirstOrDefault(d => d.Id == id);
             if (employee == null)

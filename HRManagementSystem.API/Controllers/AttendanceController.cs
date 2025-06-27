@@ -23,9 +23,14 @@ namespace HRManagementSystem.API.Controllers
             _mapper = mapper;
         }
 
+        // ========================= EMPLOYEE ACTIONS =========================
+
+        // Post: api/Attendance/check-in
+        // [POST] Check in by employee for a specific date.
+        // Status is set to Late or Present based on time.
         [HttpPost("check-in")]
         [Authorize(Roles = "Employee")]
-        public IActionResult CheckIn([FromBody] AttendanceCheckInRequest dto)
+        public IActionResult CheckIn([FromBody] AttendanceCheckInRequest request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var employee = _unitOfWork.Employees.FirstOrDefault(e => e.ApplicationUserId == Guid.Parse(userId));
@@ -33,7 +38,7 @@ namespace HRManagementSystem.API.Controllers
                 return NotFound("Employee not found.");
 
             var existing = _unitOfWork.Attendances.FirstOrDefault(
-                a => a.EmployeeId == employee.Id && a.Date.Date == dto.Date.Date);
+                a => a.EmployeeId == employee.Id && a.Date.Date == request.Date.Date);
 
             if (existing != null)
                 return BadRequest("You already checked in today.");
@@ -41,9 +46,9 @@ namespace HRManagementSystem.API.Controllers
             var attendance = new Attendance
             {
                 EmployeeId = employee.Id,
-                Date = dto.Date.Date,
-                CheckIn = dto.CheckIn,
-                Status = dto.CheckIn > new TimeSpan(9, 0, 0) 
+                Date = request.Date.Date,
+                CheckIn = request.CheckIn,
+                Status = request.CheckIn > new TimeSpan(9, 0, 0) 
                 ? AttendanceStatus.Late 
                 : AttendanceStatus.Present
             };
@@ -54,9 +59,12 @@ namespace HRManagementSystem.API.Controllers
             return Ok(new { message = "Check-in recorded." });
         }
 
+        // Post: api/Attendance/check-out
+        // [POST] Check out by employee for a specific date.
+        // If check-out time is before 3 PM, status is set to Leave.
         [HttpPatch("check-out")]
         [Authorize(Roles = "Employee")]
-        public IActionResult CheckOut([FromBody] AttendanceCheckOutRequest dto)
+        public IActionResult CheckOut([FromBody] AttendanceCheckOutRequest request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var employee = _unitOfWork.Employees.FirstOrDefault(e => e.ApplicationUserId == Guid.Parse(userId));
@@ -64,14 +72,14 @@ namespace HRManagementSystem.API.Controllers
                 return NotFound("Employee not found.");
 
             var attendance = _unitOfWork.Attendances.FirstOrDefault(
-                a => a.EmployeeId == employee.Id && a.Date.Date == dto.Date.Date);
+                a => a.EmployeeId == employee.Id && a.Date.Date == request.Date.Date);
 
             if (attendance == null)
                 return NotFound("You must check in first.");
 
-            attendance.CheckOut = dto.CheckOut;
+            attendance.CheckOut = request.CheckOut;
             
-            if (dto.CheckOut < new TimeSpan(15, 0, 0))
+            if (request.CheckOut < new TimeSpan(15, 0, 0))
             {
                 attendance.Status = AttendanceStatus.Leave;
             }
@@ -82,6 +90,10 @@ namespace HRManagementSystem.API.Controllers
             return Ok(new { message = "Check-out recorded." });
         }
 
+        // ========================= GET METHODS =========================
+
+        // Get: api/Attendance/my
+        // [GET] Get attendance records for the current employee.
         [HttpGet("my")]
         [Authorize(Roles = "Employee")]
         public IActionResult GetMyAttendance()
@@ -97,6 +109,8 @@ namespace HRManagementSystem.API.Controllers
             return Ok(result.OrderByDescending(r => r.Date));
         }
 
+        // Get: api/Attendance/by-employee/{employeeId}
+        // [GET] Get attendance records for a specific employee by ID.
         [HttpGet("by-employee/{employeeId}")]
         [Authorize(Roles = "HR,Admin")]
         public IActionResult GetAttendanceByEmployee(Guid employeeId)
@@ -107,36 +121,48 @@ namespace HRManagementSystem.API.Controllers
             return Ok(result.OrderByDescending(r => r.Date));
         }
 
+        // ========================= Post METHODS =========================
+
+        // Post: api/Attendance/create
+        // [POST] Create a manual attendance record for an employee.
         [HttpPost("create")]
         [Authorize(Roles = "HR,Admin")]
-        public IActionResult Create([FromBody] AttendanceRequest dto)
+        public IActionResult Create([FromBody] AttendanceRequest request)
         {
-            var employee = _unitOfWork.Employees.FirstOrDefault(e => e.Id == dto.EmployeeId);
+            var employee = _unitOfWork.Employees.FirstOrDefault(e => e.Id == request.EmployeeId);
             if (employee == null)
                 return NotFound("Employee not found.");
 
-            var attendance = _mapper.Map<Attendance>(dto);
+            var attendance = _mapper.Map<Attendance>(request);
             _unitOfWork.Attendances.Add(attendance);
             _unitOfWork.Complete();
 
             return Ok(new { message = "Attendance record added manually." });
         }
 
+        // ========================= PUT METHODS =========================
+
+        // Put: api/Attendance/update/{id}
+        // [PUT] Update an existing attendance record by ID.
         [HttpPut("update/{id}")]
         [Authorize(Roles = "HR,Admin")]
-        public IActionResult Update(Guid id, [FromBody] AttendanceRequest dto)
+        public IActionResult Update(Guid id, [FromBody] AttendanceRequest request)
         {
             var attendance = _unitOfWork.Attendances.FirstOrDefault(a => a.Id == id);
             if (attendance == null)
                 return NotFound("Attendance not found.");
 
-            _mapper.Map(dto, attendance);
+            _mapper.Map(request, attendance);
             _unitOfWork.Attendances.Update(attendance);
             _unitOfWork.Complete();
 
             return Ok(new { message = "Attendance updated successfully." });
         }
 
+        // ========================= DELETE METHODS =========================
+
+        // Delete: api/Attendance/delete/{id}
+        // [DELETE] Delete an attendance record by ID.
         [HttpDelete("{id}")]
         [Authorize(Roles = "HR,Admin")]
         public IActionResult Delete(Guid id)

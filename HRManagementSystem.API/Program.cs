@@ -1,4 +1,5 @@
-using Application.Mapping;
+﻿using Application.Mapping;
+using HRManagementSystem.API.Hubs;
 using HRManagementSystem.API.Identity;
 using HRManagementSystem.Application.Interfaces;
 using HRManagementSystem.Domain.Entities;
@@ -6,6 +7,7 @@ using HRManagementSystem.Infrastructure.Data;
 using HRManagementSystem.Infrastructure.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 namespace HRManagementSystem.API
 {
@@ -45,23 +47,58 @@ namespace HRManagementSystem.API
                     IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
                         System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]))
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            path.StartsWithSegments("/hubs/NotificationHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
+
+
 
             builder.Services.AddAutoMapper(typeof(MappingProfile));
 
             // Register the CORS policy
+            //builder.Services.AddCors(options =>
+            //{
+            //    options.AddPolicy("MyPolicy",
+            //        builder => builder.AllowAnyOrigin()
+            //                          .AllowAnyMethod()
+            //                          .AllowAnyHeader()
+            //                          .AllowCredentials());
+            //});
+
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("MyPolicy",
-                    builder => builder.AllowAnyOrigin()
-                                      .AllowAnyMethod()
-                                      .AllowAnyHeader());
+                options.AddPolicy("MyPolicy", policy =>
+                {
+                    policy.WithOrigins("http://127.0.0.1:5500") 
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials(); 
+                });
             });
+            builder.Services.AddSignalR();
+
+
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+            builder.Services.AddScoped<IUserService, UserService>();
+
+
+
 
             var app = builder.Build();
 
@@ -78,6 +115,8 @@ namespace HRManagementSystem.API
                 app.UseSwaggerUI();
             }
 
+            app.UseStaticFiles();
+
             app.UseHttpsRedirection();
 
             app.UseCors("MyPolicy");   
@@ -87,6 +126,9 @@ namespace HRManagementSystem.API
             app.UseAuthorization();
 
             app.MapControllers();
+
+            app.MapHub<NotificationHub>("/hubs/NotificationHub");
+
 
             await app.RunAsync(); 
         }

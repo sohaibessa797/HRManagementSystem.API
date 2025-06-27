@@ -54,7 +54,13 @@ namespace HRManagementSystem.Infrastructure.Repository
 
             if (typeof(ISoftDeletable).IsAssignableFrom(typeof(T)))
             {
-                query = query.Where(e => !((ISoftDeletable)e).IsDeleted);
+                //query = query.Where(e => !((ISoftDeletable)e).IsDeleted);
+                var parameter = Expression.Parameter(typeof(T), "e");
+                var property = Expression.Property(parameter, nameof(ISoftDeletable.IsDeleted));
+                var condition = Expression.Equal(property, Expression.Constant(false));
+                var lambda = Expression.Lambda<Func<T, bool>>(condition, parameter);
+
+                query = query.Where(lambda);
             }
 
             if (includes != null)
@@ -69,6 +75,11 @@ namespace HRManagementSystem.Infrastructure.Repository
                 query = query.Where(predicate);
             }
             return query.ToList();
+        }
+
+        public bool Any(Expression<Func<T, bool>> predicate)
+        {
+            return _context.Set<T>().Any(predicate);
         }
 
         public void Remove(T entity)

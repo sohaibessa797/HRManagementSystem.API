@@ -5,7 +5,11 @@ using HRManagementSystem.Application.Dtos.Account;
 using HRManagementSystem.Application.Dtos.Attendance;
 using HRManagementSystem.Application.Dtos.Department;
 using HRManagementSystem.Application.Dtos.Employee;
+using HRManagementSystem.Application.Dtos.EmployeeDocument;
 using HRManagementSystem.Application.Dtos.LeaveRequest;
+using HRManagementSystem.Application.Dtos.Notification;
+using HRManagementSystem.Application.Dtos.PerformanceReview;
+using HRManagementSystem.Application.Dtos.Project;
 using HRManagementSystem.Application.Dtos.Salary;
 using HRManagementSystem.Domain.Entities;
 using System;
@@ -30,7 +34,9 @@ namespace Application.Mapping
 
             //Employee
             CreateMap<Employee, EmployeeResponse>()
-                .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department.Name));
+                .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department.Name))
+                .ForMember(dest => dest.PerformanceReviews, opt => opt.MapFrom(src => src.PerformanceReviews));
+
 
             CreateMap<EmployeeRequest, Employee>()
                 .ForMember(dest => dest.Salary, opt => opt.Ignore())
@@ -73,7 +79,38 @@ namespace Application.Mapping
                 
             CreateMap<AttendanceRequest, Attendance>();
 
-           
+
+            //EmployeeDocument
+            CreateMap<EmployeeDocumentRequest, EmployeeDocument>();
+            CreateMap<EmployeeDocument, EmployeeDocumentResponse>();
+
+            // Notification 
+            CreateMap<NotificationRequest, Notification>();
+            CreateMap<Notification, NotificationResponse>();
+
+
+            //PerformanceReview
+            CreateMap<PerformanceReviewRequest, PerformanceReview>();
+            CreateMap<PerformanceReview, PerformanceReviewResponse>();
+
+
+
+            // Project <-> ProjectResponse
+            CreateMap<Project, ProjectResponse>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+
+
+            // CreateProjectRequest -> Project
+            CreateMap<ProjectRequest, Project>();
+
+            // ProjectAssignment -> ProjectAssignmentResponse
+            CreateMap<ProjectAssignment, ProjectAssignmentResponse>()
+                .ForMember(dest => dest.EmployeeName, opt => opt.MapFrom(src => src.Employee.FullName))
+                .ForMember(dest => dest.ProjectName, opt => opt.MapFrom(src => src.Project.Name));
+
+            // AssignEmployeeToProjectRequest -> ProjectAssignment
+            CreateMap<AssignEmployeeToProjectRequest, ProjectAssignment>();
+
 
         }
     }
