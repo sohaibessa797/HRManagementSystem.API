@@ -127,7 +127,7 @@ A complete Human Resource Management System built using ASP.NET Core Web API. It
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/HRManagementSystem.git
+   git clone https://github.com/your-username/HRManagementSystem.API.git
    ```
 
 2. Update your `appsettings.json` with your database connection string.
