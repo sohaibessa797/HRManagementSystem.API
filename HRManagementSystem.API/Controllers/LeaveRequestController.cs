@@ -26,7 +26,7 @@ namespace HRManagementSystem.API.Controllers
 
         // GET: api/LeaveRequest/all
         // [GET] Get all leave requests (only for HR/Admin)
-        [HttpGet]
+        [HttpGet("all")]
         [Authorize(Roles = "HR,Admin")]
         public IActionResult GetAllRequests()
         {

@@ -77,42 +77,49 @@ namespace HRManagementSystem.API.Controllers
                 return Unauthorized("Invalid email or password.");
             }
 
-
             var result = await _userManager.CheckPasswordAsync(user, dto.Password);
-            if (result)
+            if (!result)
             {
-                var userRoles = await _userManager.GetRolesAsync(user);
-                var claimList = new List<Claim>
+                return Unauthorized("Invalid email or password.");
+            }
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (userRoles == null || !userRoles.Any())
+            {
+                return Unauthorized("User has no assigned role. Please contact the administrator.");
+            }
+
+            var claimList = new List<Claim>
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Name, user.FullName ?? string.Empty),
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
                 };
-                foreach (var role in userRoles)
-                {
-                    claimList.Add(new Claim(ClaimTypes.Role, role));
-                }
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]));
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+              
 
-                var token = new JwtSecurityToken(
-                    issuer: _configuration["Jwt:Issuer"],
-                    audience: _configuration["Jwt:Audience"],
-                    expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_configuration["Jwt:DurationInMinutes"])),
-                    claims: claimList,
-                    signingCredentials: creds
-                );
-                return Ok(new
-                {
-                    token = new JwtSecurityTokenHandler().WriteToken(token),
-                    expiration = token.ValidTo
-                });
-            }
-            else
+            foreach (var role in userRoles)
             {
-                return Unauthorized("Invalid email or password.");
+                claimList.Add(new Claim(ClaimTypes.Role, role));
             }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(_configuration["Jwt:DurationInMinutes"])),
+                claims: claimList,
+                signingCredentials: creds
+            );
+
+            return Ok(new
+            {
+                token = new JwtSecurityTokenHandler().WriteToken(token),
+                expiration = token.ValidTo
+            });
         }
+
     }
 }

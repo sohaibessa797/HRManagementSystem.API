@@ -101,7 +101,7 @@ namespace HRManagementSystem.API.Controllers
 
         // DELETE: api/Department/delete/{id}
         // [DELETE] Delete an existing department by ID.
-        [HttpPatch("Soft-Delete/{id}")]
+        [HttpDelete("Soft-Delete/{id}")]
         [Authorize(Roles = "Admin")]
         public IActionResult SoftDelete(Guid id)
         {

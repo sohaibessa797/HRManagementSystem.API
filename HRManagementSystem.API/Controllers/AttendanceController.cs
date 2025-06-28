@@ -133,6 +133,12 @@ namespace HRManagementSystem.API.Controllers
             if (employee == null)
                 return NotFound("Employee not found.");
 
+            var existing = _unitOfWork.Attendances.FirstOrDefault(
+                a => a.EmployeeId == employee.Id && a.Date.Date == request.Date.Date);
+
+            if (existing != null)
+                return BadRequest("You already checked in today.");
+
             var attendance = _mapper.Map<Attendance>(request);
             _unitOfWork.Attendances.Add(attendance);
             _unitOfWork.Complete();

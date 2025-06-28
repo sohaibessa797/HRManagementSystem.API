@@ -67,7 +67,7 @@ namespace HRManagementSystem.API.Controllers
         [Authorize(Roles = "HR,Admin")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var employee = _unitOfWork.Employees.FirstOrDefault(d => d.Id == id,d=>d.Department);
+            var employee = _unitOfWork.Employees.FirstOrDefault(d => d.Id == id,d=>d.Department,d => d.PerformanceReviews);
             if (employee == null)
                 return NotFound(new { success = false, message = $"Employee with ID {id} not found." });
 
@@ -175,7 +175,7 @@ namespace HRManagementSystem.API.Controllers
 
         // PATCH: api/Employee/Soft-Delete/{id}
         // Soft delete an employee (Admin only)
-        [HttpPatch("Soft-Delete/{id}")]
+        [HttpDelete("Soft-Delete/{id}")]
         [Authorize(Roles = "Admin")]
         public IActionResult SoftDelete(Guid id)
         {
