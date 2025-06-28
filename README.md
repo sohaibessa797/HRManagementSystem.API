@@ -125,14 +125,24 @@ A complete Human Resource Management System built using ASP.NET Core Web API. It
 ### 🚀 Getting Started
 
 1. Clone the repository:
-   git clone https://github.com/sohaibessa797/HRManagementSystem.git
+
+   ```bash
+   git clone https://github.com/your-username/HRManagementSystem.git
+   ```
 
 2. Update your `appsettings.json` with your database connection string.
+
 3. Apply EF Core migrations:
+
+   ```bash
    dotnet ef database update
+   ```
 
 4. Run the project:
+
+   ```bash
    dotnet run
+   ```
 
 5. Use Postman or Swagger to test the endpoints.
 
